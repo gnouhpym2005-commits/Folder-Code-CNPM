@@ -1,20 +1,15 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
-
 from database.authentication import Authentication
 from admin.admin_dashboard import AdminDashboard
 
-
 class LoginApp:
-
     def __init__(self, root):
-
         self.root = root
         self.root.title("Course Registration System")
         self.root.geometry("1000x550")
         self.root.configure(bg="#f5f7fb")
         self.root.resizable(False, False)
-
         self.auth = Authentication()
 
         # ================= HEADER =================
@@ -157,21 +152,17 @@ class LoginApp:
     # =========================================================
 
     def change_role(self, event=None):
-
         role = self.cboRole.get()
 
         if role == "Student":
-
             self.lblID.config(text="Student ID")
             text = "Enter Student ID"
 
         elif role == "Lecturer":
-
             self.lblID.config(text="Lecturer ID")
             text = "Enter Lecturer ID"
 
         else:
-
             self.lblID.config(text="Admin ID")
             text = "Enter Admin ID"
 
@@ -182,7 +173,6 @@ class LoginApp:
     # =========================================================
 
     def clear_id(self, event):
-
         if self.txtID.get() in (
             "Enter Student ID",
             "Enter Lecturer ID",
@@ -195,9 +185,7 @@ class LoginApp:
     # =========================================================
 
     def restore_id(self, event):
-
         if self.txtID.get() == "":
-
             role = self.cboRole.get()
 
             if role == "Student":
@@ -215,11 +203,8 @@ class LoginApp:
     # =========================================================
 
     def clear_password(self, event):
-
         if self.txtPassword.get() == "Enter password":
-
             self.txtPassword.delete(0, tk.END)
-
             self.txtPassword.config(
                 fg="black",
                 show="*"
@@ -228,14 +213,11 @@ class LoginApp:
     # =========================================================
 
     def restore_password(self, event):
-
         if self.txtPassword.get() == "":
-
             self.txtPassword.config(
                 fg="gray",
                 show=""
             )
-
             self.txtPassword.insert(
                 0,
                 "Enter password"
@@ -244,7 +226,6 @@ class LoginApp:
     # =========================================================
 
     def login(self):
-
         user_id = self.txtID.get().strip()
         password = self.txtPassword.get()
         role = self.cboRole.get()
@@ -256,21 +237,17 @@ class LoginApp:
         )
 
         if user_id == "" or user_id in placeholders:
-
             messagebox.showwarning(
                 "Warning",
                 "Please enter your ID."
             )
-
             return
 
         if password == "" or password == "Enter password":
-
             messagebox.showwarning(
                 "Warning",
                 "Please enter your password."
             )
-
             return
 
         db_role = self.auth.login(
@@ -290,26 +267,17 @@ class LoginApp:
         self.root.destroy()
 
         if db_role == "Admin":
-
             root = tk.Tk()
-
             AdminDashboard(root)
-
             root.mainloop()
 
         elif db_role == "Student":
-
             print("Open Student Dashboard")
 
         elif db_role == "Lecturer":
-
             print("Open Lecturer Dashboard")
 
-
 if __name__ == "__main__":
-
     root = tk.Tk()
-
     LoginApp(root)
-
     root.mainloop()
