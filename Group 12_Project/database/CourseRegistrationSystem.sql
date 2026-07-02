@@ -4,12 +4,6 @@ GO
 USE CourseRegistrationSystem;
 GO
 
-DROP DATABASE IF EXISTS CourseRegistrationSystem;
-GO
-
-DROP TABLE Users;
-Go
-
 CREATE TABLE Users (
     userID VARCHAR(20) PRIMARY KEY,
     username VARCHAR(50) UNIQUE NOT NULL,
@@ -119,7 +113,6 @@ CREATE TABLE Registration (
     FOREIGN KEY(periodID) REFERENCES RegistrationPeriod(periodID),
     UNIQUE(studentID, classID, periodID)
 );
-
 
 INSERT INTO Student(studentID, fullName, dateOfBirth, email, password, major, earnedCredits, status) VALUES
 ('SV001','Nguyen Van An','2004-05-12','an@gmail.com','123456','Information Technology',45,'Active'),
