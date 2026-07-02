@@ -1,26 +1,21 @@
 from tkinter import messagebox
 from database.database import Database
 
-
 class Authentication:
-
     def __init__(self):
-
         self.db = Database()
 
     def login(self, user_id, password, role):
-
         conn = self.db.connect()
 
         if conn is None:
+            messagebox.showerror("Error", "Cannot connect to database!")
             return None
 
         cursor = conn.cursor()
 
         try:
-
             if role == "Student":
-
                 sql = """
                 SELECT studentID
                 FROM Student
@@ -29,7 +24,6 @@ class Authentication:
                 """
 
             elif role == "Lecturer":
-
                 sql = """
                 SELECT lecturerID
                 FROM Lecturer
@@ -38,7 +32,6 @@ class Authentication:
                 """
 
             else:
-
                 sql = """
                 SELECT adminID
                 FROM Admin
@@ -53,21 +46,17 @@ class Authentication:
             conn.close()
 
             if result:
-
                 return role
 
             messagebox.showerror(
                 "Login Failed",
                 "Invalid ID or Password."
             )
-
             return None
 
         except Exception as e:
-
             messagebox.showerror(
                 "Database Error",
                 str(e)
             )
-
             return None
