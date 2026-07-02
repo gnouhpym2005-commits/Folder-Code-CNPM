@@ -15,42 +15,54 @@ class Authentication:
         cursor = conn.cursor()
 
         try:
-            if role == "Student":
-                sql = """
-                SELECT studentID
-                FROM Student
-                WHERE studentID = ?
-                AND password = ?
+            accounts = [
+                ("Student", "Student", "studentID"),
+                ("Lecturer", "Lecturer", "lecturerID"),
+                ("Admin", "Admin", "adminID")
+            ]
+
+            for table, db_role, id_field in accounts:
+
+                sql = f"""
+                SELECT password
+                FROM {table}
+                WHERE {id_field} = ?
                 """
 
-            elif role == "Lecturer":
-                sql = """
-                SELECT lecturerID
-                FROM Lecturer
-                WHERE lecturerID = ?
-                AND password = ?
-                """
+                cursor.execute(sql, (user_id,))
+                result = cursor.fetchone()
 
-            else:
-                sql = """
-                SELECT adminID
-                FROM Admin
-                WHERE adminID = ?
-                AND password = ?
-                """
+                if result:
 
-            cursor.execute(sql, (user_id, password))
+                    # Incorrect password
+                    if result[0] != password:
+                        conn.close()
+                        messagebox.showerror(
+                            "Login Failed",
+                            "Incorrect ID or password."
+                        )
+                        return None
 
-            result = cursor.fetchone()
+                    # Correct ID & password but wrong role
+                    if db_role != role:
+                        conn.close()
+                        messagebox.showerror(
+                            "Login Failed",
+                            "Selected role does not match this account.\n"
+                            "Please choose the correct role."
+                        )
+                        return None
+
+                    # Login successful
+                    conn.close()
+                    return db_role
 
             conn.close()
 
-            if result:
-                return role
-
+            # ID not found
             messagebox.showerror(
                 "Login Failed",
-                "Invalid ID or Password."
+                "Incorrect ID or password."
             )
             return None
 
