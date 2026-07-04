@@ -1,5 +1,5 @@
 from tkinter import messagebox
-from database.database import Database
+from database import Database
 
 class Authentication:
     def __init__(self):
@@ -24,7 +24,7 @@ class Authentication:
             for table, db_role, id_field in accounts:
 
                 sql = f"""
-                SELECT password
+                SELECT password, status
                 FROM {table}
                 WHERE {id_field} = ?
                 """
@@ -33,9 +33,11 @@ class Authentication:
                 result = cursor.fetchone()
 
                 if result:
+                    db_password = result[0]
+                    status = result[1]
 
                     # Incorrect password
-                    if result[0] != password:
+                    if db_password != password:
                         conn.close()
                         messagebox.showerror(
                             "Login Failed",
@@ -43,7 +45,16 @@ class Authentication:
                         )
                         return None
 
-                    # Correct ID & password but wrong role
+                    # Account locked
+                    if status == "Locked":
+                        conn.close()
+                        messagebox.showerror(
+                            "Account Locked",
+                            "Your account has been locked.\nPlease contact the administrator."
+                        )
+                        return None
+
+                    # Correct ID & Password but wrong role
                     if db_role != role:
                         conn.close()
                         messagebox.showerror(
