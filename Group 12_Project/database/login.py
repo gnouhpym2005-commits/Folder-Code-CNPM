@@ -1,7 +1,8 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
-from database.authentication import Authentication
-from admin.admin_dashboard import AdminDashboard
+from authentication import Authentication
+from admin_dashboard import AdminDashboard
+from student_dashboard import StudentDashboard
 
 class LoginApp:
     def __init__(self, root):
@@ -272,7 +273,7 @@ class LoginApp:
             root.mainloop()
 
         elif db_role == "Student":
-            print("Open Student Dashboard")
+            StudentDashboard(student_id=user_id)
 
         elif db_role == "Lecturer":
             print("Open Lecturer Dashboard")
