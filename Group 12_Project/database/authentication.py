@@ -1,5 +1,5 @@
 from tkinter import messagebox
-from database import Database
+from database.database import Database
 
 class Authentication:
     def __init__(self):
