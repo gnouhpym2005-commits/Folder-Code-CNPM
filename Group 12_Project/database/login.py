@@ -1,8 +1,8 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
-from authentication import Authentication
-from admin_dashboard import AdminDashboard
-from student_dashboard import StudentDashboard
+from auth.authentication import Authentication
+from admin.admin_dashboard import AdminDashboard
+from student.student_dashboard import StudentDashboard
 
 class LoginApp:
     def __init__(self, root):
