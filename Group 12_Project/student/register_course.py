@@ -247,10 +247,11 @@ class RegisterCourse:
             return False
         return True
 
-    # Check Schedule Conflict
+        # Check Schedule Conflict
     def check_schedule(self, class_id):
         cursor = self.conn.cursor()
 
+        # Lấy lịch của lớp muốn đăng ký
         cursor.execute("""
             SELECT
                 dayOfWeek,
@@ -262,27 +263,86 @@ class RegisterCourse:
 
         new_course = cursor.fetchone()
 
+        # Lấy các lớp đã đăng ký
         cursor.execute("""
             SELECT
                 cc.dayOfWeek,
                 cc.startTime,
                 cc.endTime
             FROM Registration r
-                       
             JOIN CourseClass cc ON r.classID = cc.classID
-
-            WHERE r.studentID = ? AND r.status IN ('Pending','Approved')
-
-        """,
-        self.student_id
-        )
+            WHERE r.studentID = ?
+            AND r.status IN ('Pending','Approved')
+        """, self.student_id)
 
         registered = cursor.fetchall()
 
         for course in registered:
-            if course.dayOfWeek == new_course.dayOfWeek:
+
+            # Khác ngày => không thể trùng
+            if course.dayOfWeek != new_course.dayOfWeek:
+                continue
+
+            # Cùng ngày thì kiểm tra khoảng thời gian
+            if (new_course.startTime < course.endTime and
+                    new_course.endTime > course.startTime):
                 return False
+
         return True
+    
+        # Check Prerequisite
+    def check_prerequisite(self, class_id):
+
+        cursor = self.conn.cursor()
+
+        # Lấy subject của lớp muốn đăng ký
+        cursor.execute("""
+            SELECT subjectID
+            FROM CourseClass
+            WHERE classID = ?
+        """, (class_id,))
+
+        row = cursor.fetchone()
+
+        if not row:
+            return True
+
+        subject_id = row.subjectID
+
+        # Lấy môn tiên quyết
+        cursor.execute("""
+            SELECT prerequisiteID
+            FROM Subject_Prerequisite
+            WHERE subjectID = ?
+        """, (subject_id,))
+
+        prerequisite = cursor.fetchone()
+
+        # Không có môn tiên quyết
+        if prerequisite is None:
+            return True
+
+        prerequisite_id = prerequisite.prerequisiteID
+
+        # Kiểm tra sinh viên đã học môn tiên quyết chưa
+        cursor.execute("""
+            SELECT *
+            FROM Registration r
+
+            JOIN CourseClass cc
+                ON r.classID = cc.classID
+
+            WHERE r.studentID = ?
+            AND cc.subjectID = ?
+            AND r.status = 'Approved'
+        """, (self.student_id, prerequisite_id))
+
+        result = cursor.fetchone()
+
+        if result:
+            return True
+
+        return False
 
     # Register Course
     def register_course(self):
@@ -314,6 +374,13 @@ class RegisterCourse:
             messagebox.showerror(
                 "Error",
                 "Schedule conflict detected."
+            )
+            return
+        
+        if not self.check_prerequisite(class_id):
+            messagebox.showerror(
+                "Error",
+                "Prerequisite course has not been completed."
             )
             return
 
