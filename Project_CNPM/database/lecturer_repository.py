@@ -7,129 +7,21 @@ class LecturerRepository:
         self.db = Database()
         self.conn = self.db.connect()
 
-    def get_all(self):
+    # ======================================================
+    # Lecturer Dashboard
+    # ======================================================
+
+    def get_lecturer(self, lecturer_id):
+
         cursor = self.conn.cursor()
 
         cursor.execute("""
-            SELECT
-                lecturerID,
-                fullName,
-                department,
-                status
+            SELECT *
             FROM Lecturer
-            ORDER BY lecturerID
-        """)
-        return cursor.fetchall()
-    
-    def add_lecturer(self, lecturer_id, full_name, email, password, department, title, status):
-
-        cursor = self.conn.cursor()
-
-        cursor.execute("""
-            INSERT INTO Lecturer
-            (
-                lecturerID,
-                fullName,
-                email,
-                password,
-                department,
-                title,
-                status
-            )
-            VALUES (?,?,?,?,?,?,?)
-        """,
-        (
-            lecturer_id,
-            full_name,
-            email,
-            password,
-            department,
-            title,
-            status
-        ))
-        self.conn.commit()
-
-    def update_lecturer(self, lecturer_id, full_name, department, status):
-
-        cursor = self.conn.cursor()
-
-        cursor.execute("""
-            UPDATE Lecturer
-            SET
-                fullName = ?,
-                department = ?,
-                status = ?
             WHERE lecturerID = ?
-        """,
-        (
-            full_name,
-            department,
-            status,
-            lecturer_id
-        ))
-        self.conn.commit()
-        
-    def lock_lecturer(self, lecturer_id):
-        cursor = self.conn.cursor()
-        cursor.execute("""
-            UPDATE Lecturer
-            SET status='Locked'
-            WHERE lecturerID=?
-        """,(lecturer_id,))
-        self.conn.commit()
+        """, (lecturer_id,))
 
-    def unlock_lecturer(self, lecturer_id):
-        cursor = self.conn.cursor()
-        cursor.execute("""
-            UPDATE Lecturer
-            SET status='Active'
-            WHERE lecturerID=?
-        """,(lecturer_id,))
-        self.conn.commit()
-
-    def search_lecturer(self, keyword):
-
-        cursor = self.conn.cursor()
-
-        keyword = "%" + keyword + "%"
-
-        cursor.execute("""
-            SELECT
-                lecturerID,
-                fullName,
-                department,
-                status
-            FROM Lecturer
-            WHERE
-                lecturerID LIKE ?
-                OR fullName LIKE ?
-                OR department LIKE ?
-            ORDER BY lecturerID
-        """,
-        (
-            keyword,
-            keyword,
-            keyword
-        ))
-        return cursor.fetchall()
-    
-    def get_by_id(self, lecturer_id):
-
-        cursor = self.conn.cursor()
-
-        cursor.execute("""
-            SELECT
-            lecturerID,
-            fullName,
-            department,
-            status
-            FROM Lecturer
-            WHERE lecturerID=?
-        """,(lecturer_id,))
         return cursor.fetchone()
-    # ==========================
-    # Assigned Courses
-    # ==========================
 
     def get_assigned_courses(self, lecturer_id):
 
@@ -153,13 +45,9 @@ class LecturerRepository:
                 ON cc.subjectID = s.subjectID
             WHERE cc.lecturerID = ?
             ORDER BY s.subjectID
-        """,(lecturer_id,))
-        rows = cursor.fetchall()
-        print(rows)     
-        return rows      
-    # ==========================
-    # Search Assigned Courses
-    # ==========================
+        """, (lecturer_id,))
+
+        return cursor.fetchall()
 
     def search_courses(self, lecturer_id, keyword):
 
@@ -182,7 +70,7 @@ class LecturerRepository:
                 cc.room
             FROM CourseClass cc
             JOIN Subject s
-                ON cc.subjectID=s.subjectID
+                ON cc.subjectID = s.subjectID
             WHERE
                 cc.lecturerID=?
                 AND
@@ -191,8 +79,7 @@ class LecturerRepository:
                     OR s.subjectName LIKE ?
                 )
             ORDER BY s.subjectID
-        """,
-        (
+        """, (
             lecturer_id,
             keyword,
             keyword
@@ -200,12 +87,10 @@ class LecturerRepository:
 
         return cursor.fetchall()
 
-    # ==========================
-    # Enrolled Students
-    # ==========================
-
     def get_course_classes(self, lecturer_id):
+
         cursor = self.conn.cursor()
+
         cursor.execute("""
             SELECT
                 cc.classID,
@@ -215,11 +100,14 @@ class LecturerRepository:
                 ON cc.subjectID = s.subjectID
             WHERE cc.lecturerID = ?
             ORDER BY cc.classID
-        """,(lecturer_id,))
+        """, (lecturer_id,))
+
         return cursor.fetchall()
-    
+
     def get_students_by_class(self, class_id):
+
         cursor = self.conn.cursor()
+
         cursor.execute("""
             SELECT
                 st.studentID,
@@ -235,11 +123,9 @@ class LecturerRepository:
             WHERE cc.classID = ?
             AND r.status='Approved'
             ORDER BY st.studentID
-        """,(class_id,))
+        """, (class_id,))
+
         return cursor.fetchall()
-    # ==========================
-    # Change Password
-    # ==========================
 
     def change_password(self, lecturer_id, new_password):
 
@@ -265,3 +151,120 @@ class LecturerRepository:
         """, (lecturer_id, password))
 
         return cursor.fetchone()
+
+    # ======================================================
+    # Admin
+    # ======================================================
+
+    def get_all(self):
+
+        cursor = self.conn.cursor()
+
+        cursor.execute("""
+            SELECT
+                lecturerID,
+                fullName,
+                email,
+                department,
+                title,
+                status
+            FROM Lecturer
+            ORDER BY lecturerID
+        """)
+
+        return cursor.fetchall()
+
+    def add(self,
+            lecturer_id,
+            full_name,
+            email,
+            department,
+            title,
+            status):
+
+        cursor = self.conn.cursor()
+
+        cursor.execute("""
+            INSERT INTO Lecturer
+            (
+                lecturerID,
+                fullName,
+                email,
+                password,
+                department,
+                title,
+                status
+            )
+            VALUES
+            (
+                ?, ?, ?, ?, ?, ?, ?
+            )
+        """, (
+            lecturer_id,
+            full_name,
+            email,
+            "123456",
+            department,
+            title,
+            status
+        ))
+
+        self.conn.commit()
+
+    def update(self,
+               lecturer_id,
+               full_name,
+               email,
+               department,
+               title,
+               status):
+
+        cursor = self.conn.cursor()
+
+        cursor.execute("""
+            UPDATE Lecturer
+            SET
+                fullName=?,
+                email=?,
+                department=?,
+                title=?,
+                status=?
+            WHERE lecturerID=?
+        """, (
+            full_name,
+            email,
+            department,
+            title,
+            status,
+            lecturer_id
+        ))
+
+        self.conn.commit()
+
+    def lock_unlock(self, lecturer_id):
+
+        cursor = self.conn.cursor()
+
+        cursor.execute("""
+            SELECT status
+            FROM Lecturer
+            WHERE lecturerID=?
+        """, (lecturer_id,))
+
+        row = cursor.fetchone()
+
+        if row.status == "Active":
+            new_status = "Locked"
+        else:
+            new_status = "Active"
+
+        cursor.execute("""
+            UPDATE Lecturer
+            SET status=?
+            WHERE lecturerID=?
+        """, (
+            new_status,
+            lecturer_id
+        ))
+
+        self.conn.commit()
