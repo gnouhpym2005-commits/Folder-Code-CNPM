@@ -23,11 +23,11 @@ class AdminDashboard:
         sidebar_frame.pack(fill=tk.Y, side=tk.LEFT)
 
         menu_buttons = [
-            (" Quản lý Sinh viên", self.open_manage_students),
-            (" Quản lý Giảng viên", self.open_manage_lecturers),
-            (" Quản lý Môn học", self.open_manage_courses),
-            (" Quản lý Lớp học phần", self.open_manage_sections),
-            (" Đăng xuất", self.root.quit)
+            (" Manage Students", self.open_manage_students),
+            (" Manage Lecturers", self.open_manage_lecturers),
+            (" Manage Courses", self.open_manage_courses),
+            (" Manage Section", self.open_manage_sections),
+            (" Logout", self.logout)
         ]
 
         for text, command in menu_buttons:
@@ -40,7 +40,7 @@ class AdminDashboard:
         self.main_frame = tk.Frame(self.root, bg="#f4f6f9")
         self.main_frame.pack(fill=tk.BOTH, expand=True, side=tk.LEFT, padx=20, pady=20)
 
-        tk.Label(self.main_frame, text="Chào mừng đến với Hệ thống Quản trị", 
+        tk.Label(self.main_frame, text="Welcome to the Management System.", 
                  font=("Arial", 20, "bold"), bg="#f4f6f9").pack(pady=50)
 
     def clear_main_frame(self):
@@ -63,7 +63,15 @@ class AdminDashboard:
         self.clear_main_frame()
         ManageSectionsApp(self.main_frame)
 
-if __name__ == "__main__":
-    root = tk.Tk()
-    app = AdminDashboard(root)
-    root.mainloop()
+    def logout(self):
+        answer = messagebox.askyesno(
+            "Confirm Logout",
+            "Do you really want to log out?"
+        )
+        if answer:
+            self.root.destroy()    
+            import tkinter as tk
+            from login import LoginApp
+            root = tk.Tk()
+            LoginApp(root)
+            root.mainloop()
