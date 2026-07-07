@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
-from database.student_repository import StudentRepository
+from database.database import Database
 import uuid
 
 class RegisterCourse:
@@ -9,9 +9,8 @@ class RegisterCourse:
         self.parent = parent
         self.student_id = student_id
 
-
-        self.repository = StudentRepository() 
-
+        self.db = Database()
+        self.conn = self.db.connect()
 
         self.window = tk.Frame(self.parent,bg="white")
 
@@ -174,12 +173,36 @@ class RegisterCourse:
     def load_courses(self):
         for item in self.tree.get_children():
             self.tree.delete(item)
-        rows = self.repository.get_open_courses()
+
+        cursor = self.conn.cursor()
+
+        cursor.execute("""
+
+        SELECT
+            cc.classID,
+            s.subjectName,
+            s.credits,
+            cc.currentEnrolled,
+            cc.maxCapacity
+        FROM CourseClass cc
+
+        JOIN Subject s ON cc.subjectID = s.subjectID
+
+        JOIN RegistrationPeriod rp ON cc.periodID = rp.periodID
+
+        WHERE cc.status='Open' AND rp.status='Open'
+
+        """)
+
+        rows = cursor.fetchall()
+
         self.total_label.config(
             text=f"Total: {len(rows)} courses"
         )
+
         for row in rows:
             available = row.maxCapacity - row.currentEnrolled
+
             self.tree.insert(
                 "",
                 tk.END,
@@ -190,6 +213,138 @@ class RegisterCourse:
                     available
                 )
             )
+        
+    # Check Registered
+    def check_registered(self, class_id):
+
+        cursor = self.conn.cursor()
+
+        cursor.execute("""
+            SELECT *
+            FROM Registration
+            WHERE studentID = ? AND classID = ?
+        """,
+        self.student_id,
+        class_id
+        )
+        return cursor.fetchone()
+
+    # Check Available Seats
+    def check_available_seats(self, class_id):
+        cursor = self.conn.cursor()
+
+        cursor.execute("""
+            SELECT
+                currentEnrolled,
+                maxCapacity
+            FROM CourseClass
+            WHERE classID = ?
+        """, class_id)
+
+        row = cursor.fetchone()
+
+        if row.currentEnrolled >= row.maxCapacity:
+            return False
+        return True
+
+        # Check Schedule Conflict
+    def check_schedule(self, class_id):
+        cursor = self.conn.cursor()
+
+        # Lấy lịch của lớp muốn đăng ký
+        cursor.execute("""
+            SELECT
+                dayOfWeek,
+                startTime,
+                endTime
+            FROM CourseClass
+            WHERE classID = ?
+        """, class_id)
+
+        new_course = cursor.fetchone()
+
+        # Lấy các lớp đã đăng ký
+        cursor.execute("""
+            SELECT
+                cc.dayOfWeek,
+                cc.startTime,
+                cc.endTime
+            FROM Registration r
+            JOIN CourseClass cc ON r.classID = cc.classID
+            WHERE r.studentID = ?
+            AND r.status IN ('Pending','Approved')
+        """, self.student_id)
+
+        registered = cursor.fetchall()
+
+        for course in registered:
+
+            # Khác ngày => không thể trùng
+            if course.dayOfWeek != new_course.dayOfWeek:
+                continue
+
+            # Cùng ngày thì kiểm tra khoảng thời gian
+            if (new_course.startTime < course.endTime and
+                    new_course.endTime > course.startTime):
+                return False
+
+        return True
+    
+        # Check Prerequisite
+    def check_prerequisite(self, class_id):
+
+        cursor = self.conn.cursor()
+
+        # Lấy subject của lớp muốn đăng ký
+        cursor.execute("""
+            SELECT subjectID
+            FROM CourseClass
+            WHERE classID = ?
+        """, (class_id,))
+
+        row = cursor.fetchone()
+
+        if not row:
+            return True, ""
+
+        subject_id = row.subjectID
+
+        # Lấy môn tiên quyết
+        cursor.execute("""
+            SELECT prerequisiteID, s.subjectName
+            FROM Subject_Prerequisite sp
+            JOIN Subject s ON sp.prerequisiteID = s.subjectID
+            WHERE sp.subjectID = ?
+        """, (subject_id,))
+
+        prerequisite = cursor.fetchone()
+
+        # Không có môn tiên quyết
+        if prerequisite is None:
+            return True, ""
+
+        prerequisite_id = prerequisite.prerequisiteID
+        prerequisite_name = prerequisite.subjectName
+
+        # Kiểm tra sinh viên đã học môn tiên quyết chưa
+        cursor.execute("""
+            SELECT *
+            FROM Registration r
+
+            JOIN CourseClass cc
+                ON r.classID = cc.classID
+
+            WHERE r.studentID = ?
+            AND cc.subjectID = ?
+            AND r.status = 'Approved'
+        """, (self.student_id, prerequisite_id))
+
+        result = cursor.fetchone()
+
+        if result:
+            return True, ""
+
+        return False, prerequisite_name
 
     # Register Course
     def register_course(self):
@@ -203,35 +358,78 @@ class RegisterCourse:
 
         class_id = self.tree.item(selected)["values"][0]
 
-        if self.repository.check_registered(self.student_id, class_id):
+        if self.check_registered(class_id):
             messagebox.showerror(
                 "Error",
                 "You have already registered this course."
             )
             return
 
-        if not self.repository.check_available_seats(class_id):
+        if not self.check_available_seats(class_id):
             messagebox.showerror(
                 "Error",
                 "This class is full."
             )
             return
+        
+        ok, prerequisite = self.check_prerequisite(class_id)
 
-        if not self.repository.check_schedule(self.student_id, class_id):
+        if not ok:
             messagebox.showerror(
-                "Error",
-                "Schedule conflict detected."
+                "Prerequisite",
+                f"You must complete '{prerequisite}' before registering for this course."
             )
             return
         
-        if not self.repository.check_prerequisite(self.student_id, class_id):
+        if not self.check_prerequisite(class_id):
             messagebox.showerror(
                 "Error",
                 "Prerequisite course has not been completed."
             )
             return
-        
-        self.repository.register_course(self.student_id, class_id)
+
+        cursor = self.conn.cursor()
+
+        cursor.execute("""
+            SELECT periodID
+            FROM CourseClass
+            WHERE classID = ?
+        """, class_id)
+
+        period = cursor.fetchone()
+
+        reg_id = "REG" + str(uuid.uuid4())[:5]
+
+        cursor.execute("""
+            INSERT INTO Registration
+            (
+                regID,
+                studentID,
+                classID,
+                periodID,
+                status
+            )
+            VALUES
+            (
+                ?, ?, ?, ?, ?
+            )
+        """,
+        reg_id,
+        self.student_id,
+        class_id,
+        period.periodID,
+        "Pending"
+        )
+
+        cursor.execute("""
+            UPDATE CourseClass
+            SET
+                currentEnrolled = currentEnrolled + 1
+            WHERE
+                classID = ?
+        """, class_id)
+
+        self.conn.commit()
 
         messagebox.showinfo(
             "Success",
