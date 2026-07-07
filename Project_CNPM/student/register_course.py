@@ -2,12 +2,14 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from database.database import Database
 import uuid
+from database.registration_repository import RegistrationPeriodRepository
 
 class RegisterCourse:
     def __init__(self, parent, student_id):
 
         self.parent = parent
         self.student_id = student_id
+        self.period_repository = RegistrationPeriodRepository()
 
         self.db = Database()
         self.conn = self.db.connect()
@@ -41,11 +43,12 @@ class RegisterCourse:
             font=("Segoe UI",22,"bold")
         ).pack(anchor="w")
 
+
         # ---------------- Information ----------------
         notice = tk.Frame(
             body,
             bg="#DCEEFF",
-            height=45
+            height=65
         )
 
         notice.pack(fill="x", pady=15)
@@ -59,6 +62,14 @@ class RegisterCourse:
             font=("Segoe UI",10,"bold")
         ).pack(anchor="w", padx=15, pady=10)
 
+        self.period_label = tk.Label(
+            notice,
+            text="Registration Period: -",
+            bg="#DCEEFF",
+            font=("Segoe UI", 10)
+        )
+
+        self.period_label.pack(side="right", padx=15)
         # ---------------- Table ----------------
         style = ttk.Style()
 
@@ -79,7 +90,8 @@ class RegisterCourse:
             "Code",
             "Course Name",
             "Credits",
-            "Available Seats"
+            "Available Seats",
+            "Prerequisite"
         )
 
         table_frame = tk.Frame(body,bg="white")
@@ -100,7 +112,7 @@ class RegisterCourse:
 
         scrollbar.config(command=self.tree.yview)
 
-        widths = [120,350,100,150]
+        widths = [120,320,80,120,100]
 
         for col, width in zip(columns, widths):
             self.tree.heading(col,text=col)
@@ -115,6 +127,25 @@ class RegisterCourse:
             fill="both",
             expand=True
         )
+
+        tk.Label(
+            body,
+            text="⭐ = This course has prerequisite(s).",
+            bg="white",
+            fg="gray",
+            font=("Segoe UI",9,"italic")
+        ).pack(anchor="w", pady=(5,0))
+
+        self.prerequisite_label = tk.Label(
+            body,
+            text="Prerequisite: None",
+            bg="white",
+            fg="#1565C0",
+            font=("Segoe UI",10)
+        )
+        self.prerequisite_label.pack(anchor="w", pady=(8,12))
+        self.tree.bind("<<TreeviewSelect>>", self.show_prerequisite)
+
 
         # ---------------- Bottom ----------------
         bottom = tk.Frame(
@@ -171,28 +202,47 @@ class RegisterCourse:
 
     # Load Courses
     def load_courses(self):
+        period = self.period_repository.get_current_open_period()
+        print("Period =", period)
+        if period:
+            self.period_label.config(
+                text=f"Registration Period: {period[1]}"
+            )
+        else:
+            self.period_label.config(
+                text="Registration Period: Closed"
+            )
+
+        if not period:
+            messagebox.showinfo(
+                "Registration Closed",
+                "There is no active registration period."
+                )
+            return
+        
         for item in self.tree.get_children():
             self.tree.delete(item)
 
         cursor = self.conn.cursor()
 
         cursor.execute("""
-
-        SELECT
-            cc.classID,
-            s.subjectName,
-            s.credits,
-            cc.currentEnrolled,
-            cc.maxCapacity
-        FROM CourseClass cc
-
-        JOIN Subject s ON cc.subjectID = s.subjectID
-
-        JOIN RegistrationPeriod rp ON cc.periodID = rp.periodID
-
-        WHERE cc.status='Open' AND rp.status='Open'
-
-        """)
+            SELECT
+                cc.classID,
+                s.subjectName,
+                s.credits,
+                cc.currentEnrolled,
+                cc.maxCapacity,
+                CASE
+                    WHEN sp.subjectID IS NOT NULL THEN '*'
+                    ELSE ''
+                END AS prerequisite
+            FROM CourseClass cc
+            JOIN Subject s ON cc.subjectID = s.subjectID
+            JOIN RegistrationPeriod rp ON cc.periodID = rp.periodID
+            LEFT JOIN Subject_Prerequisite sp ON s.subjectID = sp.subjectID
+            WHERE cc.status = 'Open'
+            AND cc.periodID = ?
+        """,(period[0],))
 
         rows = cursor.fetchall()
 
@@ -210,10 +260,28 @@ class RegisterCourse:
                     row.classID,
                     row.subjectName,
                     row.credits,
-                    available
+                    available,
+                    row.prerequisite
                 )
             )
         
+
+    def show_prerequisite(self, event=None):
+        selected=self.tree.focus()
+        if not selected:
+            return
+        class_id=self.tree.item(selected)["values"][0]
+        cursor=self.conn.cursor()
+        cursor.execute("""
+            SELECT s.subjectName
+            FROM CourseClass cc
+            JOIN Subject_Prerequisite sp ON cc.subjectID=sp.subjectID
+            JOIN Subject s ON sp.prerequisiteID=s.subjectID
+            WHERE cc.classID=?
+        """,(class_id,))
+        row=cursor.fetchone()
+        self.prerequisite_label.config(text=f"Prerequisite: {row.subjectName}" if row else "Prerequisite: None")
+
     # Check Registered
     def check_registered(self, class_id):
 
@@ -358,6 +426,16 @@ class RegisterCourse:
 
         class_id = self.tree.item(selected)["values"][0]
 
+        period = self.period_repository.get_current_open_period()
+        print(period)
+
+        if not period:
+            messagebox.showinfo(
+                "Registration Closed",
+                "The course registration period is currently closed."
+            )
+            return
+
         if self.check_registered(class_id):
             messagebox.showerror(
                 "Error",
@@ -381,13 +459,6 @@ class RegisterCourse:
             )
             return
         
-        if not self.check_prerequisite(class_id):
-            messagebox.showerror(
-                "Error",
-                "Prerequisite course has not been completed."
-            )
-            return
-
         cursor = self.conn.cursor()
 
         cursor.execute("""
