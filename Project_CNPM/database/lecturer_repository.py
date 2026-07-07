@@ -127,31 +127,6 @@ class LecturerRepository:
 
         return cursor.fetchall()
 
-    def change_password(self, lecturer_id, new_password):
-
-        cursor = self.conn.cursor()
-
-        cursor.execute("""
-            UPDATE Lecturer
-            SET password=?
-            WHERE lecturerID=?
-        """, (new_password, lecturer_id))
-
-        self.conn.commit()
-
-    def check_password(self, lecturer_id, password):
-
-        cursor = self.conn.cursor()
-
-        cursor.execute("""
-            SELECT *
-            FROM Lecturer
-            WHERE lecturerID=?
-            AND password=?
-        """, (lecturer_id, password))
-
-        return cursor.fetchone()
-
     # ======================================================
     # Admin
     # ======================================================
